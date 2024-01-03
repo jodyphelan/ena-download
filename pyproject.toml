@@ -20,7 +20,7 @@ test = [
     "flake8",
     "mypy"
 ]
-doc = [
+docs = [
     "mkdocs >=1.0.4",
     "mkdocstrings[python]",
     "mkdocs-material >=4.6.3",
