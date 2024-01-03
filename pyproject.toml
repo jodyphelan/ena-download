@@ -24,8 +24,6 @@ docs = [
     "mkdocs >=1.0.4",
     "mkdocstrings[python]",
     "mkdocs-material >=4.6.3",
-    "mkdocstrings_handlers",
-    "mkdocstrings[python]",
 ]
 
 [project.scripts]
