@@ -28,3 +28,7 @@ jobs:
         run: mypy ena_download
       - name: Test with pytest
         run: pytest --doctest-modules --cov=ena_download
+      - name: Pytest Coverage Comment
+        uses: MishaKav/pytest-coverage-comment@v1.1.50
+
+            
