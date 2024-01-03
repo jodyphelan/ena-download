@@ -27,11 +27,11 @@ jobs:
       - name: Run mypy
         run: mypy ena_download
       - name: Test with pytest
-        run: pytest --doctest-modules --cov=ena_download --junitxml=pytest.xml
+        run: pytest --doctest-modules --cov=ena_download --junitxml=pytest.xml | tee pytest-coverage.txt
       - name: Pytest Coverage Comment
         uses: MishaKav/pytest-coverage-comment@v1.1.50
         with:
-          pytest-coverage-path: ./.coverage
+          pytest-coverage-path: ./pytest-coverage.txt
           junitxml-path: ./pytest.xml
 
             
