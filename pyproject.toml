@@ -8,6 +8,25 @@ authors = [{name = "Jody Phelan", email = "jody.phelan@lshtm.ac.uk"}]
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
+dependencies = [
+    "requests >=2.6",   
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest >=2.7.3",
+    "pytest-cov",
+    "types-requests",
+    "flake8",
+    "mypy"
+]
+doc = [
+    "mkdocs >=1.0.4",
+    "mkdocstrings[python]",
+    "mkdocs-material >=4.6.3",
+    "mkdocstrings_handlers",
+    "mkdocstrings[python]",
+]
 
 [project.scripts]
 ena-download = "ena_download:cli"

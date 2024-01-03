@@ -7,9 +7,10 @@ import requests
 import os
 import subprocess as sp
 import argparse
+from typing import List
 
 
-def is_valid_accession(accession: str) -> str:
+def is_valid_accession(accession: str) -> str|bool:
     """
     Get the URL of the data to download.
 
@@ -39,7 +40,7 @@ def is_valid_accession(accession: str) -> str:
     
     return True
 
-def extract_data_path(accession: str) -> str:
+def extract_data_path(accession: str) -> List[str]:
     """
     Get the URL of the data to download.
 
@@ -67,7 +68,7 @@ def extract_data_path(accession: str) -> str:
     second_row = response.text.split("\n")[1]
     return second_row.split("\t")[1].split(";")
 
-def download_data(accession: str, urls: str) -> None:
+def download_data(accession: str, urls: List[str]) -> None:
     """
     Download data from the ENA.
 
