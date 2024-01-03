@@ -7,10 +7,10 @@ import requests
 import os
 import subprocess as sp
 import argparse
-from typing import List
+from typing import List, Union
 
 
-def is_valid_accession(accession: str) -> str|bool:
+def is_valid_accession(accession: str) -> bool:
     """
     Get the URL of the data to download.
 
