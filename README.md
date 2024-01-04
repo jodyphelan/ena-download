@@ -1,6 +1,6 @@
 # ena-download
 
-A python package to download fastq data from ENA.
+A python package to download fastq data from ENA using [aspera](https://ena-docs.readthedocs.io/en/latest/retrieval/file-download.html#using-aspera) as the transfer method.
 
 ## Installation
 
