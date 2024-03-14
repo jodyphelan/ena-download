@@ -71,6 +71,7 @@ def extract_data_path(accession: str) -> List[str]:
 import signal, os
 
 def handler(signum, frame):
+    """Signal handler for the download timeout."""
     raise TimeoutError(f'Download timeout reached, trying again!')
 
 def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
@@ -83,6 +84,8 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
         The accession number of the data to download.
     urls : str
         The URLs of the data to download.
+    timeout : int
+        The timeout in seconds for the download to complete. Default is 300 seconds.
 
     Returns
     -------
@@ -124,6 +127,8 @@ def main(accession: str, timeout: int = 300) -> None:
     ----------
     accession : str
         The accession number of the data to download.
+    timeout : int
+        The timeout in seconds for the download to complete. Default is 300 seconds.
 
     Returns
     -------
