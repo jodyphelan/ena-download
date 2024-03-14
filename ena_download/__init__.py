@@ -16,8 +16,8 @@ def is_valid_accession(accession: str) -> bool:
 
     Parameters
     ----------
-    accession : str
-        The accession number of the data to download.
+    accession :
+        The run accession number of the data to download.
 
     Returns
     -------
@@ -90,12 +90,14 @@ def download_data(accession: str, urls: List[str]) -> None:
     ascp = os.path.join(home, '.aspera/cli/bin/ascp')
     opensshfile = os.path.join(home, '.aspera/cli/etc/asperaweb_id_dsa.openssh')
 
-    for url in urls:
-        path = url.replace('ftp.sra.ebi.ac.uk/', 'era-fasp@fasp.sra.ebi.ac.uk:')
-        sp.run([
-            ascp, '-T', '-l', '300m', '-P', '33001', '-i', opensshfile, 
-            path, accession + '/'
-        ], check=True)
+    with open(f'{accession}/stdout.log', 'w') as logfile, open(f'{accession}/err.log', 'w') as errfile:
+
+        for url in urls:
+            path = url.replace('ftp.sra.ebi.ac.uk/', 'era-fasp@fasp.sra.ebi.ac.uk:')
+            sp.run([
+                ascp, '-T', '-l', '300m', '-P', '33001', '-i', opensshfile, 
+                path, accession + '/'
+            ], stdout=logfile, stderr=errfile, check=True)
     
     return None
 
