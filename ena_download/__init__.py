@@ -96,21 +96,21 @@ def download_data(accession: str, urls: List[str]) -> None:
     opensshfile = os.path.join(home, '.aspera/cli/etc/asperaweb_id_dsa.openssh')
 
     i=0
-    while i<3:
-        signal.signal(signal.SIGALRM, handler)
-        signal.alarm(2)
-        try:
-            for url in urls:
+    for url in urls:
+        while i<3:
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(2)
+            try:
                 path = url.replace('ftp.sra.ebi.ac.uk/', 'era-fasp@fasp.sra.ebi.ac.uk:')
                 sp.run([
                     ascp, '-T', '-l', '300m', '-P', '33001', '-i', opensshfile, 
                     path, accession + '/'
                 ], check=True)
-        except:
-            i+=1
-            continue
-    if i==3:
-        raise TimeoutError(f"Download failed after 3 attempts")
+            except:
+                i+=1
+                continue
+        if i==3:
+            raise TimeoutError(f"Download failed after 3 attempts")
     return None
 
 def main(accession: str) -> None:
