@@ -8,7 +8,7 @@ import os
 import subprocess as sp
 import argparse
 from typing import List
-
+import sys
 
 def is_valid_accession(accession: str) -> bool:
     """
