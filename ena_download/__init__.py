@@ -7,8 +7,8 @@ import requests
 import os
 import subprocess as sp
 import argparse
-from typing import List, Union
-
+from typing import List
+import sys
 
 def is_valid_accession(accession: str) -> bool:
     """
@@ -16,8 +16,8 @@ def is_valid_accession(accession: str) -> bool:
 
     Parameters
     ----------
-    accession : str
-        The accession number of the data to download.
+    accession :
+        The run accession number of the data to download.
 
     Returns
     -------
@@ -68,7 +68,13 @@ def extract_data_path(accession: str) -> List[str]:
     second_row = response.text.split("\n")[1]
     return second_row.split("\t")[1].split(";")
 
-def download_data(accession: str, urls: List[str]) -> None:
+import signal, os
+
+def handler(signum, frame):
+    """Signal handler for the download timeout."""
+    raise TimeoutError(f'Download timeout reached, trying again!')
+
+def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
     """
     Download data from the ENA.
 
@@ -78,6 +84,8 @@ def download_data(accession: str, urls: List[str]) -> None:
         The accession number of the data to download.
     urls : str
         The URLs of the data to download.
+    timeout : int
+        The timeout in seconds for the download to complete. Default is 300 seconds.
 
     Returns
     -------
@@ -91,15 +99,27 @@ def download_data(accession: str, urls: List[str]) -> None:
     opensshfile = os.path.join(home, '.aspera/cli/etc/asperaweb_id_dsa.openssh')
 
     for url in urls:
-        path = url.replace('ftp.sra.ebi.ac.uk/', 'era-fasp@fasp.sra.ebi.ac.uk:')
-        sp.run([
-            ascp, '-T', '-l', '300m', '-P', '33001', '-i', opensshfile, 
-            path, accession + '/'
-        ], check=True)
-    
+        i=0
+        while True:
+            sys.stderr.write(f"Attempt {i+1} at downloading {url}...\n")
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(timeout)
+            try:
+                path = url.replace('ftp.sra.ebi.ac.uk/', 'era-fasp@fasp.sra.ebi.ac.uk:')
+                sp.run([
+                    ascp, '-T', '-l', '300m', '-P', '33001', '-i', opensshfile, 
+                    path, accession + '/'
+                ], check=True)
+                signal.alarm(0)
+                break
+            except:
+                i+=1
+                if i==3:
+                    raise TimeoutError(f"Download failed after 3 attempts")
+                continue
     return None
 
-def main(accession: str) -> None:
+def main(accession: str, timeout: int = 300) -> None:
     """
     Function that calls all the other functions to download data from the ENA.
 
@@ -107,6 +127,8 @@ def main(accession: str) -> None:
     ----------
     accession : str
         The accession number of the data to download.
+    timeout : int
+        The timeout in seconds for the download to complete. Default is 300 seconds.
 
     Returns
     -------
@@ -117,7 +139,7 @@ def main(accession: str) -> None:
     
     paths = extract_data_path(accession)
 
-    download_data(accession, paths)
+    download_data(accession, paths, timeout)
 
     
     return None
@@ -133,7 +155,8 @@ def cli():
     """
     argparser = argparse.ArgumentParser(description='ENA Download')
     argparser.add_argument('accession', type=str, help='Accession number of the data to download')
+    argparser.add_argument('--timeout', default=300, type=int, help='Timeout in seconds for the download to complete. Default is 300 seconds.')
 
     args = argparser.parse_args()
 
-    main(args.accession)
+    main(args.accession,args.timeout)
