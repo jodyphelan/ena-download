@@ -7,7 +7,7 @@ import requests
 import os
 import subprocess as sp
 import argparse
-from typing import List, Union
+from typing import List
 
 
 def is_valid_accession(accession: str) -> bool:
@@ -68,6 +68,11 @@ def extract_data_path(accession: str) -> List[str]:
     second_row = response.text.split("\n")[1]
     return second_row.split("\t")[1].split(";")
 
+import signal, os
+
+def handler(signum, frame):
+    raise TimeoutError(f'Download timeout reached, trying again!')
+
 def download_data(accession: str, urls: List[str]) -> None:
     """
     Download data from the ENA.
@@ -90,15 +95,22 @@ def download_data(accession: str, urls: List[str]) -> None:
     ascp = os.path.join(home, '.aspera/cli/bin/ascp')
     opensshfile = os.path.join(home, '.aspera/cli/etc/asperaweb_id_dsa.openssh')
 
-    with open(f'{accession}/stdout.log', 'w') as logfile, open(f'{accession}/err.log', 'w') as errfile:
-
-        for url in urls:
-            path = url.replace('ftp.sra.ebi.ac.uk/', 'era-fasp@fasp.sra.ebi.ac.uk:')
-            sp.run([
-                ascp, '-T', '-l', '300m', '-P', '33001', '-i', opensshfile, 
-                path, accession + '/'
-            ], stdout=logfile, stderr=errfile, check=True)
-    
+    i=0
+    while i<3:
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(2)
+        try:
+            for url in urls:
+                path = url.replace('ftp.sra.ebi.ac.uk/', 'era-fasp@fasp.sra.ebi.ac.uk:')
+                sp.run([
+                    ascp, '-T', '-l', '300m', '-P', '33001', '-i', opensshfile, 
+                    path, accession + '/'
+                ], check=True)
+        except:
+            i+=1
+            continue
+    if i==3:
+        raise TimeoutError(f"Download failed after 3 attempts")
     return None
 
 def main(accession: str) -> None:
