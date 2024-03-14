@@ -98,6 +98,7 @@ def download_data(accession: str, urls: List[str]) -> None:
     i=0
     for url in urls:
         while i<3:
+            sys.stderr.write(f"Attempt {i+1} at downloading {url}...\n")
             signal.signal(signal.SIGALRM, handler)
             signal.alarm(2)
             try:
