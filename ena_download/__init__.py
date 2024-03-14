@@ -73,7 +73,7 @@ import signal, os
 def handler(signum, frame):
     raise TimeoutError(f'Download timeout reached, trying again!')
 
-def download_data(accession: str, urls: List[str]) -> None:
+def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
     """
     Download data from the ENA.
 
@@ -100,13 +100,14 @@ def download_data(accession: str, urls: List[str]) -> None:
         while i<3:
             sys.stderr.write(f"Attempt {i+1} at downloading {url}...\n")
             signal.signal(signal.SIGALRM, handler)
-            signal.alarm(2)
+            signal.alarm(timeout)
             try:
                 path = url.replace('ftp.sra.ebi.ac.uk/', 'era-fasp@fasp.sra.ebi.ac.uk:')
                 sp.run([
                     ascp, '-T', '-l', '300m', '-P', '33001', '-i', opensshfile, 
                     path, accession + '/'
                 ], check=True)
+                signal.alarm(0)
             except:
                 i+=1
                 continue
@@ -114,7 +115,7 @@ def download_data(accession: str, urls: List[str]) -> None:
             raise TimeoutError(f"Download failed after 3 attempts")
     return None
 
-def main(accession: str) -> None:
+def main(accession: str, timeout: int = 300) -> None:
     """
     Function that calls all the other functions to download data from the ENA.
 
@@ -132,7 +133,7 @@ def main(accession: str) -> None:
     
     paths = extract_data_path(accession)
 
-    download_data(accession, paths)
+    download_data(accession, paths, timeout)
 
     
     return None
@@ -148,7 +149,8 @@ def cli():
     """
     argparser = argparse.ArgumentParser(description='ENA Download')
     argparser.add_argument('accession', type=str, help='Accession number of the data to download')
+    argparser.add_argument('--timeout', default=300, type=int, help='Timeout in seconds for the download to complete. Default is 300 seconds.')
 
     args = argparser.parse_args()
 
-    main(args.accession)
+    main(args.accession,args.timeout)
