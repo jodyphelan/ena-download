@@ -97,9 +97,7 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
 
     for url in urls:
         i=0
-        while i<3:
-            if i>3:
-                raise TimeoutError(f"Download failed after 3 attempts")
+        while True:
             sys.stderr.write(f"Attempt {i+1} at downloading {url}...\n")
             signal.signal(signal.SIGALRM, handler)
             signal.alarm(timeout)
@@ -113,6 +111,8 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
                 break
             except:
                 i+=1
+                if i==4:
+                    raise TimeoutError(f"Download failed after 3 attempts")
                 continue
     return None
 
