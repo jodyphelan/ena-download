@@ -95,8 +95,8 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
     ascp = os.path.join(home, '.aspera/cli/bin/ascp')
     opensshfile = os.path.join(home, '.aspera/cli/etc/asperaweb_id_dsa.openssh')
 
-    i=0
     for url in urls:
+        i=0
         while i<3:
             sys.stderr.write(f"Attempt {i+1} at downloading {url}...\n")
             signal.signal(signal.SIGALRM, handler)
@@ -111,8 +111,8 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
             except:
                 i+=1
                 continue
-        if i==3:
-            raise TimeoutError(f"Download failed after 3 attempts")
+            if i==3:
+                raise TimeoutError(f"Download failed after 3 attempts")
     return None
 
 def main(accession: str, timeout: int = 300) -> None:
