@@ -111,7 +111,7 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
                 break
             except:
                 i+=1
-                if i==4:
+                if i==3:
                     raise TimeoutError(f"Download failed after 3 attempts")
                 continue
     return None
