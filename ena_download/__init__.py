@@ -9,6 +9,9 @@ import subprocess as sp
 import argparse
 from typing import List
 import sys
+import json
+import logging
+logging.basicConfig(level=logging.INFO)
 
 def is_valid_accession(accession: str) -> bool:
     """
@@ -32,12 +35,21 @@ def is_valid_accession(accession: str) -> bool:
     Traceback (most recent call last):
     ValueError: Invalid accession number: ERR0000000
     """
+    logging.debug(f"Checking if {accession} is a valid accession number")
+
+    url = "https://www.ebi.ac.uk/ena/portal/api/search"
+    parameters = {
+        "result": "read_run",
+        "includeAccessions": accession,
+        "limit": 10,
+        "format": "json"
+    }
+    response = requests.get(url, params=parameters)
     
-    url = f"https://www.ebi.ac.uk/ena/browser/api/xml/{accession}"
-    response = requests.get(url)
-    if response.status_code != 200:
+    data = json.loads(response.text)
+
+    if len(data) == 0:
         raise ValueError(f"Invalid accession number: {accession}")
-    
     return True
 
 def extract_data_path(accession: str) -> List[str]:
@@ -60,13 +72,28 @@ def extract_data_path(accession: str) -> List[str]:
     ['ftp.sra.ebi.ac.uk/vol1/fastq/ERR114/068/ERR11466368/ERR11466368_1.fastq.gz', 'ftp.sra.ebi.ac.uk/vol1/fastq/ERR114/068/ERR11466368/ERR11466368_2.fastq.gz']
     """
     
-    url = f"https://www.ebi.ac.uk/ena/portal/api/filereport?accession={accession}&result=read_run&fields=run_accession,fastq_ftp,fastq_md5,fastq_bytes"
-    response = requests.get(url)
+    logging.debug(f"Extracting data path for {accession}")
+
+    url = "https://www.ebi.ac.uk/ena/portal/api/filereport"
+    parameters = {
+        "accession": accession,
+        "result": "read_run",
+        "fields": "run_accession,fastq_ftp,fastq_md5,fastq_bytes",
+        "format": "json"
+    }
+
+    response = requests.get(url, params=parameters)
     if response.status_code != 200:
         raise ValueError(f"Invalid URL: {url}")
     
-    second_row = response.text.split("\n")[1]
-    return second_row.split("\t")[1].split(";")
+    data = json.loads(response.text)[0]
+
+    files = data['fastq_ftp'].split(";")
+    
+    if len(files) == 0:
+        raise ValueError(f"No data found for {accession}")
+    
+    return files
 
 import signal, os
 
@@ -91,6 +118,8 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
     -------
     None
     """
+
+    logging.debug(f"Downloading data for {accession}")
     if not os.path.exists(accession):
         os.mkdir(accession)
 
@@ -156,7 +185,10 @@ def cli():
     argparser = argparse.ArgumentParser(description='ENA Download')
     argparser.add_argument('accession', type=str, help='Accession number of the data to download')
     argparser.add_argument('--timeout', default=300, type=int, help='Timeout in seconds for the download to complete. Default is 300 seconds.')
-
+    argparser.add_argument('--debug', action='store_true', help='Print debug information')
     args = argparser.parse_args()
+
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     main(args.accession,args.timeout)
