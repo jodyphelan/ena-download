@@ -87,6 +87,10 @@ def extract_data_path(accession: str) -> List[str]:
         raise ValueError(f"Invalid URL: {url}")
     
     data = json.loads(response.text)[0]
+    logging.debug(f"Data found for {accession}: {data}")
+
+    if len(data['fastq_ftp']) == 0:
+        raise ValueError(f"No data found for {accession}")
 
     files = data['fastq_ftp'].split(";")
     
