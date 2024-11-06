@@ -87,13 +87,15 @@ def extract_data_path(accession: str) -> List[str]:
         raise ValueError(f"Invalid URL: {url}")
     
     logging.debug(f"Response: {response.text}")
-    data = json.loads(response.text)[0]
+    data = json.loads(response.text)
     logging.debug(f"Data found for {accession}: {data}")
 
     if len(data['fastq_ftp']) == 0:
         raise ValueError(f"No data found for {accession}")
 
-    files = data['fastq_ftp'].split(";")
+    files = []
+    for d in data['fastq_ftp']:
+        files += d.split(";")
     
     if len(files) == 0:
         raise ValueError(f"No data found for {accession}")
@@ -151,6 +153,15 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
                 if i==3:
                     raise TimeoutError(f"Download failed after 3 attempts")
                 continue
+    
+    if accession.startswith('SAM'):
+        forward_reads = sorted([f for f in os.listdir(accession) if f.endswith('_1.fastq.gz')])
+        reverse_reads = sorted([f for f in os.listdir(accession) if f.endswith('_2.fastq.gz')])
+        if len(forward_reads) == 0 or len(reverse_reads) == 0:
+            raise ValueError(f"Download failed for {accession}")
+        sp.run(['cat'] + forward_reads + [os.path.join(accession, accession + '_1.fastq.gz')], check=True)
+        sp.run(['cat'] + reverse_reads + [os.path.join(accession, accession + '_2.fastq.gz')], check=True)
+        
     return None
 
 def main(accession: str, timeout: int = 300) -> None:
