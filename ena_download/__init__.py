@@ -90,7 +90,7 @@ def extract_data_path(accession: str) -> List[str]:
     data = json.loads(response.text)
     logging.debug(f"Data found for {accession}: {data}")
 
-    if len(data['fastq_ftp']) == 0:
+    if len(data[0]['fastq_ftp']) == 0:
         raise ValueError(f"No data found for {accession}")
 
     files = []
