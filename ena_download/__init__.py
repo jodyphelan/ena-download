@@ -2,7 +2,7 @@
 This package facilitates the download of data from the ENA in fastq format.
 To use it, you need to provide the accession number of the data you want to download.
 """
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 import requests
 import os
 import subprocess as sp
@@ -161,7 +161,7 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
             raise ValueError(f"Download failed for {accession}")
         sp.run(['cat'] + forward_reads + [os.path.join(accession, accession + '_1.fastq.gz')], check=True)
         sp.run(['cat'] + reverse_reads + [os.path.join(accession, accession + '_2.fastq.gz')], check=True)
-        
+
     return None
 
 def main(accession: str, timeout: int = 300) -> None:
