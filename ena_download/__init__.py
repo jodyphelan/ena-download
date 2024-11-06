@@ -2,7 +2,7 @@
 This package facilitates the download of data from the ENA in fastq format.
 To use it, you need to provide the accession number of the data you want to download.
 """
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 import requests
 import os
 import subprocess as sp
