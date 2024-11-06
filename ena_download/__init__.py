@@ -94,8 +94,8 @@ def extract_data_path(accession: str) -> List[str]:
         raise ValueError(f"No data found for {accession}")
 
     files = []
-    for d in data['fastq_ftp']:
-        files += d.split(";")
+    for d in data:
+        files += d['fastq_ftp'].split(";")
     
     if len(files) == 0:
         raise ValueError(f"No data found for {accession}")
