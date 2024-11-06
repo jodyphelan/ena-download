@@ -86,6 +86,7 @@ def extract_data_path(accession: str) -> List[str]:
     if response.status_code != 200:
         raise ValueError(f"Invalid URL: {url}")
     
+    logging.debug(f"Response: {response.text}")
     data = json.loads(response.text)[0]
     logging.debug(f"Data found for {accession}: {data}")
 
