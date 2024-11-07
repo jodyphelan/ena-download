@@ -155,8 +155,8 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
                 continue
     
     if accession.startswith('SAM'):
-        forward_reads = sorted([f for f in os.listdir(accession) if f.endswith('_1.fastq.gz')])
-        reverse_reads = sorted([f for f in os.listdir(accession) if f.endswith('_2.fastq.gz')])
+        forward_reads = sorted([f'{accession}/{f}' for f in os.listdir(accession) if f.endswith('_1.fastq.gz')])
+        reverse_reads = sorted([f'{accession}/{f}' for f in os.listdir(accession) if f.endswith('_2.fastq.gz')])
         if len(forward_reads) == 0 or len(reverse_reads) == 0:
             raise ValueError(f"Download failed for {accession}")
         sp.run(['cat'] + forward_reads + [os.path.join(accession, accession + '_1.fastq.gz')], check=True)
