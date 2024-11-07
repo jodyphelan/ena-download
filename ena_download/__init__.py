@@ -160,8 +160,8 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
         if len(forward_reads) == 0 or len(reverse_reads) == 0:
             raise ValueError(f"Download failed for {accession}")
 
-        sp.run(['cat'] + forward_reads + ['>', os.path.join(accession, accession + '_1.fastq.gz')], check=True)
-        sp.run(['cat'] + reverse_reads + ['>', os.path.join(accession, accession + '_2.fastq.gz')], check=True)
+        sp.run(f"cat {' '.join(forward_reads)} > {os.path.join(accession, accession + '_1.fastq.gz')}", shell=True, check=True)
+        sp.run(f"cat {' '.join(reverse_reads)} > {os.path.join(accession, accession + '_2.fastq.gz')}", shell=True, check=True)
 
     return None
 
