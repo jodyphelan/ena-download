@@ -11,6 +11,7 @@ from typing import List
 import sys
 import json
 import logging
+from ftplib import FTP
 logging.basicConfig(level=logging.INFO)
 
 def is_valid_accession(accession: str) -> bool:
@@ -108,7 +109,7 @@ def handler(signum, frame):
     """Signal handler for the download timeout."""
     raise TimeoutError(f'Download timeout reached, trying again!')
 
-def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
+def ascp_download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
     """
     Download data from the ENA.
 
@@ -165,7 +166,46 @@ def download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
 
     return None
 
-def main(accession: str, timeout: int = 300) -> None:
+def ftp_download_data(accession: str, urls: List[str]) -> None:
+    """
+    Download data from the ENA.
+
+    Parameters
+    ----------
+    accession : str
+        The accession number of the data to download.
+    urls : str
+        The URLs of the data to download.
+
+    Returns
+    -------
+    None
+    """
+
+    ftp = FTP('ftp.sra.ebi.ac.uk')
+    ftp.login('anonymous')
+
+    logging.debug(f"Downloading data for {accession}")
+    if not os.path.exists(accession):
+        os.mkdir(accession)
+
+    for url in urls:
+        logging.debug(f"Downloading {url}")
+        location = url.replace('ftp.sra.ebi.ac.uk', '')
+        ftp.retrbinary(f'RETR {location}', open(os.path.join(accession, url.split('/')[-1]), 'wb').write)
+    
+    if accession.startswith('SAM'):
+        forward_reads = sorted([f'{accession}/{f}' for f in os.listdir(accession) if f.endswith('_1.fastq.gz')])
+        reverse_reads = sorted([f'{accession}/{f}' for f in os.listdir(accession) if f.endswith('_2.fastq.gz')])
+        if len(forward_reads) == 0 or len(reverse_reads) == 0:
+            raise ValueError(f"Download failed for {accession}")
+
+        sp.run(f"cat {' '.join(forward_reads)} > {os.path.join(accession, accession + '_1.fastq.gz')}", shell=True, check=True)
+        sp.run(f"cat {' '.join(reverse_reads)} > {os.path.join(accession, accession + '_2.fastq.gz')}", shell=True, check=True)
+
+    return None
+
+def main(accession: str,  mode: str, timeout: int = 300) -> None:
     """
     Function that calls all the other functions to download data from the ENA.
 
@@ -173,6 +213,8 @@ def main(accession: str, timeout: int = 300) -> None:
     ----------
     accession : str
         The accession number of the data to download.
+    mode : str
+        The mode of download: ftp or ascp.
     timeout : int
         The timeout in seconds for the download to complete. Default is 300 seconds.
 
@@ -185,7 +227,10 @@ def main(accession: str, timeout: int = 300) -> None:
     
     paths = extract_data_path(accession)
 
-    download_data(accession, paths, timeout)
+    if mode == 'ftp':
+        ftp_download_data(accession, paths)
+    else:
+        ascp_download_data(accession, paths, timeout)
 
     
     return None
@@ -201,6 +246,7 @@ def cli():
     """
     argparser = argparse.ArgumentParser(description='ENA Download')
     argparser.add_argument('accession', type=str, help='Accession number of the data to download')
+    argparser.add_argument('mode', type=str, default='ftp', help='Mode of download: ftp or ascp')
     argparser.add_argument('--timeout', default=300, type=int, help='Timeout in seconds for the download to complete. Default is 300 seconds.')
     argparser.add_argument('--debug', action='store_true', help='Print debug information')
     args = argparser.parse_args()
@@ -208,4 +254,4 @@ def cli():
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    main(args.accession,args.timeout)
+    main(args.accession,args.mode,args.timeout)
