@@ -47,7 +47,7 @@ def is_valid_accession(accession: str) -> bool:
     parameters = {
         "result": "read_run",
         "includeAccessions": accession,
-        "limit": 10,
+        "limit": "10",
         "format": "json"
     }
     response = requests.get(url, params=parameters)

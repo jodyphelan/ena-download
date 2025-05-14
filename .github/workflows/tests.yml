@@ -15,12 +15,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10"]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -28,7 +28,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install ".[test]"
       - name: Run mypy
-        run: mypy ena_download
+        run: mypy src/ena_download
       - name: Test with pytest
         run: pytest --doctest-modules --cov=ena_download --junitxml=pytest.xml | tee pytest-coverage.txt
   
