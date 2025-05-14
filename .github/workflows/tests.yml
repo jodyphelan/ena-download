@@ -28,7 +28,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install ".[test]"
       - name: Run mypy
-        run: mypy ena_download
+        run: mypy src/ena_download
       - name: Test with pytest
         run: pytest --doctest-modules --cov=ena_download --junitxml=pytest.xml | tee pytest-coverage.txt
   
