@@ -2,16 +2,21 @@
 This package facilitates the download of data from the ENA in fastq format.
 To use it, you need to provide the accession number of the data you want to download.
 """
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 import requests
 import os
 import subprocess as sp
 import argparse
-from typing import List
+from typing import List, Dict
 import sys
 import json
 import logging
 from ftplib import FTP
+import tempfile 
+import shutil
+import hashlib
+
+
 logging.basicConfig(level=logging.INFO)
 
 def is_valid_accession(accession: str) -> bool:
@@ -53,7 +58,7 @@ def is_valid_accession(accession: str) -> bool:
         raise ValueError(f"Invalid accession number: {accession}")
     return True
 
-def extract_data_path(accession: str) -> List[str]:
+def extract_data_path(accession: str) -> Dict[str, str]:
     """
     Get the URL of the data to download.
 
@@ -101,7 +106,13 @@ def extract_data_path(accession: str) -> List[str]:
     if len(files) == 0:
         raise ValueError(f"No data found for {accession}")
     
-    return files
+    md5_list = []
+    for d in data:
+        md5_list += d['fastq_md5'].split(";")
+    
+    md5s = dict(zip(files, md5_list))
+    
+    return md5s
 
 import signal, os
 
@@ -109,64 +120,28 @@ def handler(signum, frame):
     """Signal handler for the download timeout."""
     raise TimeoutError(f'Download timeout reached, trying again!')
 
-def ascp_download_data(accession: str, urls: List[str],timeout: int = 300) -> None:
+def md5sum(file: str) -> str:
     """
-    Download data from the ENA.
+    Calculate the md5 checksum of a file.
 
     Parameters
     ----------
-    accession : str
-        The accession number of the data to download.
-    urls : str
-        The URLs of the data to download.
-    timeout : int
-        The timeout in seconds for the download to complete. Default is 300 seconds.
+    file : str
+        The path to the file to calculate the md5 checksum for.
 
     Returns
     -------
-    None
+    str
+        The md5 checksum of the file.
     """
 
-    logging.debug(f"Downloading data for {accession}")
-    if not os.path.exists(accession):
-        os.mkdir(accession)
+    hash_md5 = hashlib.md5()
+    with open(file, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
 
-    home = os.path.expanduser("~")
-    ascp = os.path.join(home, '.aspera/cli/bin/ascp')
-    opensshfile = os.path.join(home, '.aspera/cli/etc/asperaweb_id_dsa.openssh')
-
-    for url in urls:
-        i=0
-        while True:
-            sys.stderr.write(f"Attempt {i+1} at downloading {url}...\n")
-            signal.signal(signal.SIGALRM, handler)
-            signal.alarm(timeout)
-            try:
-                path = url.replace('ftp.sra.ebi.ac.uk/', 'era-fasp@fasp.sra.ebi.ac.uk:')
-                sp.run([
-                    ascp, '-T', '-l', '300m', '-P', '33001', '-i', opensshfile, 
-                    path, accession + '/'
-                ], check=True)
-                signal.alarm(0)
-                break
-            except:
-                i+=1
-                if i==3:
-                    raise TimeoutError(f"Download failed after 3 attempts")
-                continue
-    
-    if accession.startswith('SAM'):
-        forward_reads = sorted([f'{accession}/{f}' for f in os.listdir(accession) if f.endswith('_1.fastq.gz')])
-        reverse_reads = sorted([f'{accession}/{f}' for f in os.listdir(accession) if f.endswith('_2.fastq.gz')])
-        if len(forward_reads) == 0 or len(reverse_reads) == 0:
-            raise ValueError(f"Download failed for {accession}")
-
-        sp.run(f"cat {' '.join(forward_reads)} > {os.path.join(accession, accession + '_1.fastq.gz')}", shell=True, check=True)
-        sp.run(f"cat {' '.join(reverse_reads)} > {os.path.join(accession, accession + '_2.fastq.gz')}", shell=True, check=True)
-
-    return None
-
-def ftp_download_data(accession: str, urls: List[str]) -> None:
+def ftp_download_data(accession: str, output_directory: str, files: Dict[str, str]) -> None:
     """
     Download data from the ENA.
 
@@ -174,8 +149,12 @@ def ftp_download_data(accession: str, urls: List[str]) -> None:
     ----------
     accession : str
         The accession number of the data to download.
+    output_directory : str
+        The directory to download the data to.
     urls : str
         The URLs of the data to download.
+    md5s : dict
+        The md5 checksums of the files to download.
 
     Returns
     -------
@@ -185,27 +164,49 @@ def ftp_download_data(accession: str, urls: List[str]) -> None:
     ftp = FTP('ftp.sra.ebi.ac.uk')
     ftp.login('anonymous')
 
+    urls = list(files.keys())
+    md5s = files
+
     logging.debug(f"Downloading data for {accession}")
-    if not os.path.exists(accession):
-        os.mkdir(accession)
 
-    for url in urls:
-        logging.debug(f"Downloading {url}")
-        location = url.replace('ftp.sra.ebi.ac.uk', '')
-        ftp.retrbinary(f'RETR {location}', open(os.path.join(accession, url.split('/')[-1]), 'wb').write)
-    
-    if accession.startswith('SAM'):
-        forward_reads = sorted([f'{accession}/{f}' for f in os.listdir(accession) if f.endswith('_1.fastq.gz')])
-        reverse_reads = sorted([f'{accession}/{f}' for f in os.listdir(accession) if f.endswith('_2.fastq.gz')])
-        if len(forward_reads) == 0 or len(reverse_reads) == 0:
-            raise ValueError(f"Download failed for {accession}")
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        for url in urls:
+            logging.debug(f"Downloading {url} into {tmpdirname}")
+            location = url.replace('ftp.sra.ebi.ac.uk', '')
+            filename = url.split('/')[-1]
+            ftp.retrbinary(f'RETR {location}', open(os.path.join(tmpdirname, filename), 'wb').write)
 
-        sp.run(f"cat {' '.join(forward_reads)} > {os.path.join(accession, accession + '_1.fastq.gz')}", shell=True, check=True)
-        sp.run(f"cat {' '.join(reverse_reads)} > {os.path.join(accession, accession + '_2.fastq.gz')}", shell=True, check=True)
+            # Check md5 checksum
+            md5 = md5s[url]
+            download_md5 = md5sum(os.path.join(tmpdirname, filename))
+            md5_match = md5 == download_md5
+            logging.debug(f"MD5 checksum for {filename} = {md5_match}")
+            if not md5_match:
+                raise ValueError(f"MD5 checksum failed for {url}")
+
+        if accession.startswith('SAM'):
+            forward_reads = sorted([f'{tmpdirname}/{f}' for f in os.listdir(tmpdirname) if f.endswith('_1.fastq.gz')])
+            reverse_reads = sorted([f'{tmpdirname}/{f}' for f in os.listdir(tmpdirname) if f.endswith('_2.fastq.gz')])
+            if len(forward_reads) == 0 or len(reverse_reads) == 0:
+                raise ValueError(f"Download failed for {accession}")
+
+            sp.run(f"cat {' '.join(forward_reads)} > {os.path.join(tmpdirname, accession + '_1.fastq.gz')}", shell=True, check=True)
+            sp.run(f"cat {' '.join(reverse_reads)} > {os.path.join(tmpdirname, accession + '_2.fastq.gz')}", shell=True, check=True)
+
+            # remove the original files
+            for f in forward_reads + reverse_reads:
+                os.remove(os.path.join(tmpdirname, f))
+        
+        # move the files to the output directory
+        if not os.path.exists(output_directory):
+            os.mkdir(output_directory)
+        for f in os.listdir(tmpdirname):
+            logging.debug(f"Moving {f} to {output_directory}")
+            shutil.move(os.path.join(tmpdirname, f), os.path.join(output_directory, f))
 
     return None
 
-def main(accession: str,  mode: str, timeout: int = 300) -> None:
+def main(accession: str,  output_directory: str) -> None:
     """
     Function that calls all the other functions to download data from the ENA.
 
@@ -225,12 +226,14 @@ def main(accession: str,  mode: str, timeout: int = 300) -> None:
     
     is_valid_accession(accession)
     
-    paths = extract_data_path(accession)
+    files = extract_data_path(accession)
 
-    if mode == 'ftp':
-        ftp_download_data(accession, paths)
-    else:
-        ascp_download_data(accession, paths, timeout)
+
+    ftp_download_data(
+        accession=accession,
+        output_directory=output_directory,
+        files=files
+    )
 
     
     return None
@@ -246,12 +249,11 @@ def cli():
     """
     argparser = argparse.ArgumentParser(description='ENA Download')
     argparser.add_argument('accession', type=str, help='Accession number of the data to download')
-    argparser.add_argument('mode', type=str, default='ftp', help='Mode of download: ftp or ascp')
-    argparser.add_argument('--timeout', default=300, type=int, help='Timeout in seconds for the download to complete. Default is 300 seconds.')
+    argparser.add_argument('--outdir', default=".", type=str, help='Output directory to download the data to')
     argparser.add_argument('--debug', action='store_true', help='Print debug information')
     args = argparser.parse_args()
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    main(args.accession,args.mode,args.timeout)
+    main(args.accession,args.outdir)
