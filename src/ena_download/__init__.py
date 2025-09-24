@@ -15,6 +15,7 @@ from ftplib import FTP
 import tempfile 
 import shutil
 import hashlib
+from tqdm import tqdm
 
 
 logging.basicConfig(level=logging.INFO)
@@ -174,7 +175,15 @@ def ftp_download_data(accession: str, output_directory: str, files: Dict[str, st
             logging.debug(f"Downloading {url} into {tmpdirname}")
             location = url.replace('ftp.sra.ebi.ac.uk', '')
             filename = url.split('/')[-1]
-            ftp.retrbinary(f'RETR {location}', open(os.path.join(tmpdirname, filename), 'wb').write)
+            with open(os.path.join(tmpdirname, filename), 'wb') as f:
+                total_size = ftp.size(location)
+
+                with tqdm(total=total_size, unit='B', unit_scale=True, desc=filename) as pbar:
+                    def callback(data):
+                        f.write(data)
+                        pbar.update(len(data))
+                    ftp.retrbinary(f'RETR {location}', callback)
+            # ftp.retrbinary(f'RETR {location}', open(os.path.join(tmpdirname, filename), 'wb').write)
 
             # Check md5 checksum
             md5 = md5s[url]
