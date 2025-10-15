@@ -176,14 +176,21 @@ def ftp_download_data(accession: str, output_directory: str, files: Dict[str, st
             location = url.replace('ftp.sra.ebi.ac.uk', '')
             filename = url.split('/')[-1]
             with open(os.path.join(tmpdirname, filename), 'wb') as f:
-                total_size = ftp.size(location)
+                try:
+                    total_size = ftp.size(location)
 
-                with tqdm(total=total_size, unit='B', unit_scale=True, desc=filename) as pbar:
-                    def callback(data):
-                        f.write(data)
-                        pbar.update(len(data))
-                    ftp.retrbinary(f'RETR {location}', callback)
-            # ftp.retrbinary(f'RETR {location}', open(os.path.join(tmpdirname, filename), 'wb').write)
+                except:
+                    logging.info(f"Error getting size for {location}... not reporting progress.")
+                    total_size = None
+
+                if total_size:
+                    with tqdm(total=total_size, unit='B', unit_scale=True, desc=filename) as pbar:
+                        def callback(data):
+                            f.write(data)
+                            pbar.update(len(data))
+                        ftp.retrbinary(f'RETR {location}', callback)
+                else:
+                    ftp.retrbinary(f'RETR {location}', open(os.path.join(tmpdirname, filename), 'wb').write)
 
             # Check md5 checksum
             md5 = md5s[url]
