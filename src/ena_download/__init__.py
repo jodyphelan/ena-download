@@ -267,6 +267,7 @@ def cli():
     argparser.add_argument('accession', type=str, help='Accession number of the data to download')
     argparser.add_argument('--outdir', default=".", type=str, help='Output directory to download the data to')
     argparser.add_argument('--debug', action='store_true', help='Print debug information')
+    argparser.add_argument('--version', action='version', version=f'%(prog)s {__version__}')
     args = argparser.parse_args()
 
     if args.debug:
