@@ -280,4 +280,4 @@ def cli():
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    main(args.accession,args.outdir)
+    main(args.accession,args.outdir, args.platform, args.library_strategy)
