@@ -198,7 +198,7 @@ def ftp_download_data(accession: str, output_directory: str, files: Dict[str, st
             md5 = md5s[url]
             download_md5 = md5sum(os.path.join(tmpdirname, filename))
             md5_match = md5 == download_md5
-            logging.debug(f"MD5 checksum for {filename} = {md5_match}")
+            logging.debug(f"MD5 checksum for {filename} = {md5_match} (expected: {md5}, got: {download_md5})")
             if not md5_match:
                 raise ValueError(f"MD5 checksum failed for {url}")
 
