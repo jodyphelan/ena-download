@@ -274,7 +274,7 @@ def cli():
     argparser.add_argument('accession', type=str, help='Accession number of the data to download')
     argparser.add_argument('--outdir', default=".", type=str, help='Output directory to download the data to')
     argparser.add_argument('--platform', type=str, default="ILLUMINA", help='Instrument platform to filter the data')
-    argparser.add_argument('--library_strategy', type=str, default='GENOMIC', help='Library strategy to filter the data')
+    argparser.add_argument('--library_strategy', type=str, default='WGS', help='Library strategy to filter the data')
     argparser.add_argument('--debug', action='store_true', help='Print debug information')
     argparser.add_argument('--version', action='version', version=f'%(prog)s {__version__}')
     args = argparser.parse_args()
