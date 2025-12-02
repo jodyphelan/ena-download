@@ -16,6 +16,7 @@ import tempfile
 import shutil
 import hashlib
 from tqdm import tqdm
+import time
 
 
 logging.basicConfig(level=logging.INFO)
@@ -141,6 +142,76 @@ def md5sum(file: str) -> str:
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
+def ftp_get_file(ftp: FTP, url: str, tmpdirname: str) -> None:
+    """Download a single file from ENA FTP with up to 3 retries.
+
+    Parameters
+    ----------
+    ftp : FTP
+        An active ftplib.FTP connection to ftp.sra.ebi.ac.uk
+    url : str
+        Full ftp URL to the file (e.g., ftp.sra.ebi.ac.uk/vol1/fastq/.../file.fastq.gz)
+    tmpdirname : str
+        Temporary directory path to write the file during download
+    """
+    max_attempts = 3
+    backoff_base = 1  # seconds
+
+    # small initial wait; helps avoid hammering the server in tight loops
+    time.sleep(1)
+    logging.debug(f"Downloading {url} into {tmpdirname}")
+    location = url.replace('ftp.sra.ebi.ac.uk', '')
+    filename = url.split('/')[-1]
+
+    for attempt in range(1, max_attempts + 1):
+        # Ensure any partial file from a previous attempt doesn't remain
+        dest_path = os.path.join(tmpdirname, filename)
+        if os.path.exists(dest_path):
+            try:
+                os.remove(dest_path)
+            except Exception:
+                # If removal fails, we'll still overwrite in 'wb' mode
+                pass
+
+        try:
+            # Try to get the size for progress reporting
+            try:
+                total_size = ftp.size(location)
+            except Exception:
+                logging.info(f"Error getting size for {location}... not reporting progress.")
+                total_size = None
+
+            with open(dest_path, 'wb') as f:
+                if total_size:
+                    with tqdm(total=total_size, unit='B', unit_scale=True, desc=filename) as pbar:
+                        def callback(data):
+                            f.write(data)
+                            pbar.update(len(data))
+                        ftp.retrbinary(f'RETR {location}', callback)
+                else:
+                    # Fallback without progress bar
+                    def write_chunk(data):
+                        f.write(data)
+                    ftp.retrbinary(f'RETR {location}', write_chunk)
+
+            # If we reached here without raising, download succeeded
+            return
+        except Exception as e:
+            # Log and retry with exponential backoff
+            if attempt < max_attempts:
+                wait = backoff_base * (2 ** (attempt - 1))
+                logging.warning(f"Attempt {attempt} to download {filename} failed: {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+                # best-effort: keep the FTP connection alive between retries
+                try:
+                    ftp.voidcmd('NOOP')
+                except Exception:
+                    # If NOOP fails, continue anyway; caller opened the connection
+                    pass
+            else:
+                logging.error(f"Failed to download {filename} after {max_attempts} attempts.")
+                raise
+
 def ftp_download_data(accession: str, output_directory: str, files: Dict[str, str]) -> None:
     """
     Download data from the ENA.
@@ -171,25 +242,9 @@ def ftp_download_data(accession: str, output_directory: str, files: Dict[str, st
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         for url in urls:
-            logging.debug(f"Downloading {url} into {tmpdirname}")
-            location = url.replace('ftp.sra.ebi.ac.uk', '')
+            ftp_get_file(ftp, url, tmpdirname)
             filename = url.split('/')[-1]
-            with open(os.path.join(tmpdirname, filename), 'wb') as f:
-                try:
-                    total_size = ftp.size(location)
-
-                except:
-                    logging.info(f"Error getting size for {location}... not reporting progress.")
-                    total_size = None
-
-                if total_size:
-                    with tqdm(total=total_size, unit='B', unit_scale=True, desc=filename) as pbar:
-                        def callback(data):
-                            f.write(data)
-                            pbar.update(len(data))
-                        ftp.retrbinary(f'RETR {location}', callback)
-                else:
-                    ftp.retrbinary(f'RETR {location}', open(os.path.join(tmpdirname, filename), 'wb').write)
+            
 
             # Check md5 checksum
             md5 = md5s[url]
