@@ -59,7 +59,7 @@ def is_valid_accession(accession: str) -> bool:
         raise ValueError(f"Invalid accession number: {accession}")
     return True
 
-def extract_data_path(accession: str) -> Dict[str, str]:
+def extract_data_path(accession: str, platform: str, library_strategy: str) -> Dict[str, str]:
     """
     Get the URL of the data to download.
 
@@ -80,12 +80,11 @@ def extract_data_path(accession: str) -> Dict[str, str]:
     """
     
     logging.debug(f"Extracting data path for {accession}")
-
     url = "https://www.ebi.ac.uk/ena/portal/api/filereport"
     parameters = {
         "accession": accession,
         "result": "read_run",
-        "fields": "run_accession,fastq_ftp,fastq_md5,fastq_bytes",
+        "fields": "run_accession,fastq_ftp,fastq_md5,fastq_bytes,instrument_model,instrument_platform,library_strategy,library_layout,library_source",
         "format": "json"
     }
 
@@ -102,7 +101,8 @@ def extract_data_path(accession: str) -> Dict[str, str]:
 
     files = []
     for d in data:
-        files += d['fastq_ftp'].split(";")
+        if d['instrument_platform'] == platform and d['library_strategy'] == library_strategy:
+            files += d['fastq_ftp'].split(";")
     
     if len(files) == 0:
         raise ValueError(f"No data found for {accession}")
@@ -222,7 +222,12 @@ def ftp_download_data(accession: str, output_directory: str, files: Dict[str, st
 
     return None
 
-def main(accession: str,  output_directory: str) -> None:
+def main(
+        accession: str,  
+        output_directory: str,
+        platform: str,
+        library_strategy: str
+    ) -> None:
     """
     Function that calls all the other functions to download data from the ENA.
 
@@ -242,7 +247,7 @@ def main(accession: str,  output_directory: str) -> None:
     
     is_valid_accession(accession)
     
-    files = extract_data_path(accession)
+    files = extract_data_path(accession, platform, library_strategy)
 
 
     ftp_download_data(
@@ -266,6 +271,8 @@ def cli():
     argparser = argparse.ArgumentParser(description='ENA Download')
     argparser.add_argument('accession', type=str, help='Accession number of the data to download')
     argparser.add_argument('--outdir', default=".", type=str, help='Output directory to download the data to')
+    argparser.add_argument('--platform', type=str, default="ILLUMINA", help='Instrument platform to filter the data')
+    argparser.add_argument('--library_strategy', type=str, default='GENOMIC', help='Library strategy to filter the data')
     argparser.add_argument('--debug', action='store_true', help='Print debug information')
     argparser.add_argument('--version', action='version', version=f'%(prog)s {__version__}')
     args = argparser.parse_args()
