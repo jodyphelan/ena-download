@@ -166,7 +166,6 @@ def ftp_download_data(accession: str, output_directory: str, files: Dict[str, st
 
     urls = list(files.keys())
     md5s = files
-    print(md5s)
 
     logging.debug(f"Downloading data for {accession}")
 
