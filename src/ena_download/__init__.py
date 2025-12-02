@@ -103,6 +103,8 @@ def extract_data_path(accession: str, platform: str, library_strategy: str) -> D
     for d in data:
         if d['instrument_platform'] == platform and d['library_strategy'] == library_strategy:
             files += d['fastq_ftp'].split(";")
+        else:
+            logging.debug(f"Skipping {d['run_accession']} due to platform/library strategy mismatch (found: {d['instrument_platform']}/{d['library_strategy']}, expected: {platform}/{library_strategy})")
     
     if len(files) == 0:
         raise ValueError(f"No data found for {accession}")
