@@ -99,23 +99,20 @@ def extract_data_path(accession: str, platform: str, library_strategy: str) -> D
     if len(data[0]['fastq_ftp']) == 0:
         raise ValueError(f"No data found for {accession}")
 
-    files = []
+    files = {}
     for d in data:
         if d['instrument_platform'] == platform and d['library_strategy'] == library_strategy:
-            files += d['fastq_ftp'].split(";")
+            tmpfiles = d['fastq_ftp'].split(";")
+            tmpmd5s = d['fastq_md5'].split(";")
+            for f, m in zip(tmpfiles, tmpmd5s):
+                files[f] = m
         else:
             logging.debug(f"Skipping {d['run_accession']} due to platform/library strategy mismatch (found: {d['instrument_platform']}/{d['library_strategy']}, expected: {platform}/{library_strategy})")
     
     if len(files) == 0:
         raise ValueError(f"No data found for {accession}")
     
-    md5_list = []
-    for d in data:
-        md5_list += d['fastq_md5'].split(";")
-    
-    md5s = dict(zip(files, md5_list))
-    
-    return md5s
+    return files
 
 import signal, os
 
@@ -169,7 +166,6 @@ def ftp_download_data(accession: str, output_directory: str, files: Dict[str, st
 
     urls = list(files.keys())
     md5s = files
-    logging.debug(md5s)
 
     logging.debug(f"Downloading data for {accession}")
 
