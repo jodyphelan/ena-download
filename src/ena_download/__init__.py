@@ -44,7 +44,7 @@ def is_valid_accession(accession: str) -> bool:
     ValueError: Invalid accession number: ERR0000000
     """
     logging.debug(f"Checking if {accession} is a valid accession number")
-
+    time.sleep(1)
     url = "https://www.ebi.ac.uk/ena/portal/api/search"
     parameters = {
         "result": "read_run",
@@ -79,7 +79,7 @@ def extract_data_path(accession: str, platform: str, library_strategy: str) -> D
     >>> extract_data_path("ERR11466368")
     ['ftp.sra.ebi.ac.uk/vol1/fastq/ERR114/068/ERR11466368/ERR11466368_1.fastq.gz', 'ftp.sra.ebi.ac.uk/vol1/fastq/ERR114/068/ERR11466368/ERR11466368_2.fastq.gz']
     """
-    
+    time.sleep(1)
     logging.debug(f"Extracting data path for {accession}")
     url = "https://www.ebi.ac.uk/ena/portal/api/filereport"
     parameters = {
@@ -157,13 +157,13 @@ def ftp_get_file(ftp: FTP, url: str, tmpdirname: str) -> None:
     max_attempts = 3
     backoff_base = 1  # seconds
 
-    # small initial wait; helps avoid hammering the server in tight loops
-    time.sleep(1)
+
     logging.debug(f"Downloading {url} into {tmpdirname}")
     location = url.replace('ftp.sra.ebi.ac.uk', '')
     filename = url.split('/')[-1]
 
     for attempt in range(1, max_attempts + 1):
+        time.sleep(1)  # small wait before each attempt
         # Ensure any partial file from a previous attempt doesn't remain
         dest_path = os.path.join(tmpdirname, filename)
         if os.path.exists(dest_path):
