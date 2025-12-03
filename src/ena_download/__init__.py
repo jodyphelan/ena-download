@@ -142,6 +142,70 @@ def md5sum(file: str) -> str:
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
+def http_get_file(url: str, tmpdirname: str) -> None:
+    """Download a single file from ENA via HTTP with up to 3 retries.
+
+    Parameters
+    ----------
+    url : str
+        FTP-style URL to the file (e.g., ftp.sra.ebi.ac.uk/vol1/fastq/.../file.fastq.gz)
+        Will be converted to HTTPS URL automatically.
+    tmpdirname : str
+        Temporary directory path to write the file during download
+    """
+    max_attempts = 3
+    backoff_base = 1  # seconds
+
+    # Convert FTP URL to HTTPS
+    if url.startswith('ftp.sra.ebi.ac.uk'):
+        http_url = f"https://{url}"
+    else:
+        http_url = url
+
+    filename = url.split('/')[-1]
+    dest_path = os.path.join(tmpdirname, filename)
+    logging.debug(f"Downloading {http_url} into {tmpdirname} via HTTP")
+
+    for attempt in range(1, max_attempts + 1):
+        time.sleep(1)  # small wait before each attempt
+        # Ensure any partial file from a previous attempt doesn't remain
+        if os.path.exists(dest_path):
+            try:
+                os.remove(dest_path)
+            except Exception:
+                pass
+
+        try:
+            response = requests.get(http_url, stream=True, timeout=300)
+            response.raise_for_status()
+
+            # Get file size if available
+            total_size = int(response.headers.get('content-length', 0))
+
+            with open(dest_path, 'wb') as f:
+                if total_size:
+                    with tqdm(total=total_size, unit='B', unit_scale=True, desc=filename) as pbar:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                                pbar.update(len(chunk))
+                else:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+
+            # If we reached here without raising, download succeeded
+            return
+        except Exception as e:
+            # Log and retry with exponential backoff
+            if attempt < max_attempts:
+                wait = backoff_base * (2 ** (attempt - 1))
+                logging.warning(f"Attempt {attempt} to download {filename} via HTTP failed: {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                logging.error(f"Failed to download {filename} via HTTP after {max_attempts} attempts.")
+                raise
+
 def ftp_get_file(ftp: FTP, url: str, tmpdirname: str) -> None:
     """Download a single file from ENA FTP with up to 3 retries.
 
@@ -213,8 +277,7 @@ def ftp_get_file(ftp: FTP, url: str, tmpdirname: str) -> None:
                 raise
 
 def ftp_download_data(accession: str, output_directory: str, files: Dict[str, str]) -> None:
-    """
-    Download data from the ENA.
+    """Download data from the ENA via FTP, with HTTP fallback.
 
     Parameters
     ----------
@@ -222,18 +285,13 @@ def ftp_download_data(accession: str, output_directory: str, files: Dict[str, st
         The accession number of the data to download.
     output_directory : str
         The directory to download the data to.
-    urls : str
-        The URLs of the data to download.
-    md5s : dict
-        The md5 checksums of the files to download.
+    files : dict
+        Dict mapping URLs to their md5 checksums.
 
     Returns
     -------
     None
     """
-
-    ftp = FTP('ftp.sra.ebi.ac.uk')
-    ftp.login('anonymous')
 
     urls = list(files.keys())
     md5s = files
@@ -242,9 +300,36 @@ def ftp_download_data(accession: str, output_directory: str, files: Dict[str, st
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         for url in urls:
-            ftp_get_file(ftp, url, tmpdirname)
             filename = url.split('/')[-1]
-            
+            download_success = False
+
+            # Try FTP first
+            try:
+                ftp = FTP('ftp.sra.ebi.ac.uk')
+                ftp.login('anonymous')
+                ftp_get_file(ftp, url, tmpdirname)
+                ftp.quit()
+                download_success = True
+                logging.info(f"Successfully downloaded {filename} via FTP")
+            except Exception as ftp_error:
+                logging.warning(f"FTP download failed for {filename}: {ftp_error}")
+                try:
+                    ftp.quit()
+                except:
+                    pass
+
+                # Fallback to HTTP
+                logging.info(f"Attempting HTTP download for {filename}...")
+                try:
+                    http_get_file(url, tmpdirname)
+                    download_success = True
+                    logging.info(f"Successfully downloaded {filename} via HTTP")
+                except Exception as http_error:
+                    logging.error(f"HTTP download also failed for {filename}: {http_error}")
+                    raise ValueError(f"Failed to download {filename} via both FTP and HTTP") from http_error
+
+            if not download_success:
+                raise ValueError(f"Failed to download {filename}")
 
             # Check md5 checksum
             md5 = md5s[url]
