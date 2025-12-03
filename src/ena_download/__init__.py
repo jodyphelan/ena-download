@@ -21,6 +21,9 @@ import time
 
 logging.basicConfig(level=logging.INFO)
 
+# Global flag to control progress bar display
+_show_progress = True
+
 def is_valid_accession(accession: str) -> bool:
     """
     Get the URL of the data to download.
@@ -183,7 +186,7 @@ def http_get_file(url: str, tmpdirname: str) -> None:
             total_size = int(response.headers.get('content-length', 0))
 
             with open(dest_path, 'wb') as f:
-                if total_size:
+                if total_size and _show_progress:
                     with tqdm(total=total_size, unit='B', unit_scale=True, desc=filename) as pbar:
                         for chunk in response.iter_content(chunk_size=8192):
                             if chunk:
@@ -246,7 +249,7 @@ def ftp_get_file(ftp: FTP, url: str, tmpdirname: str) -> None:
                 total_size = None
 
             with open(dest_path, 'wb') as f:
-                if total_size:
+                if total_size and _show_progress:
                     with tqdm(total=total_size, unit='B', unit_scale=True, desc=filename) as pbar:
                         def callback(data):
                             f.write(data)
@@ -365,7 +368,8 @@ def main(
         accession: str,  
         output_directory: str,
         platform: str,
-        library_strategy: str
+        library_strategy: str,
+        show_progress: bool = True
     ) -> None:
     """
     Function that calls all the other functions to download data from the ENA.
@@ -378,11 +382,15 @@ def main(
         The mode of download: ftp or ascp.
     timeout : int
         The timeout in seconds for the download to complete. Default is 300 seconds.
+    show_progress : bool
+        Whether to display progress bars during download. Default is True.
 
     Returns
     -------
     None
     """
+    global _show_progress
+    _show_progress = show_progress
     
     is_valid_accession(accession)
     
@@ -412,6 +420,7 @@ def cli():
     argparser.add_argument('--outdir', default=".", type=str, help='Output directory to download the data to')
     argparser.add_argument('--platform', type=str, default="ILLUMINA", help='Instrument platform to filter the data')
     argparser.add_argument('--library_strategy', type=str, default='WGS', help='Library strategy to filter the data')
+    argparser.add_argument('--no-progress', action='store_true', help='Disable progress bar display')
     argparser.add_argument('--debug', action='store_true', help='Print debug information')
     argparser.add_argument('--version', action='version', version=f'%(prog)s {__version__}')
     args = argparser.parse_args()
@@ -419,4 +428,4 @@ def cli():
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    main(args.accession,args.outdir, args.platform, args.library_strategy)
+    main(args.accession, args.outdir, args.platform, args.library_strategy, show_progress=not args.no_progress)
