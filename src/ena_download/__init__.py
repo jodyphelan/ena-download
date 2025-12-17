@@ -18,6 +18,7 @@ import hashlib
 from tqdm import tqdm
 import time
 
+sleep_time = 0.2
 
 logging.basicConfig(level=logging.INFO)
 
@@ -47,7 +48,7 @@ def is_valid_accession(accession: str) -> bool:
     ValueError: Invalid accession number: ERR0000000
     """
     logging.debug(f"Checking if {accession} is a valid accession number")
-    time.sleep(1)
+    time.sleep(sleep_time)
     url = "https://www.ebi.ac.uk/ena/portal/api/search"
     parameters = {
         "result": "read_run",
@@ -82,7 +83,7 @@ def get_accession_info(accession: str) -> Dict[str, str]:
     >>> get_accession_info("ERR11466368")
     {'run_accession': 'ERR11466368', 'instrument_model': 'Illumina NovaSeq 6000', 'instrument_platform': 'ILLUMINA', 'library_strategy': 'WGS', 'library_layout': 'PAIRED', 'library_source': 'GENOMIC'}
     """
-    time.sleep(1)
+    time.sleep(sleep_time)
     logging.debug(f"Getting accession info for {accession}")
     url = "https://www.ebi.ac.uk/ena/portal/api/filereport"
     parameters = {
@@ -192,7 +193,7 @@ def http_get_file(url: str, tmpdirname: str) -> None:
     logging.debug(f"Downloading {http_url} into {tmpdirname} via HTTP")
 
     for attempt in range(1, max_attempts + 1):
-        time.sleep(1)  # small wait before each attempt
+        time.sleep(sleep_time)  # small wait before each attempt
         # Ensure any partial file from a previous attempt doesn't remain
         if os.path.exists(dest_path):
             try:
@@ -252,7 +253,7 @@ def ftp_get_file(ftp: FTP, url: str, tmpdirname: str) -> None:
     filename = url.split('/')[-1]
 
     for attempt in range(1, max_attempts + 1):
-        time.sleep(1)  # small wait before each attempt
+        time.sleep(sleep_time)  # small wait before each attempt
         # Ensure any partial file from a previous attempt doesn't remain
         dest_path = os.path.join(tmpdirname, filename)
         if os.path.exists(dest_path):
