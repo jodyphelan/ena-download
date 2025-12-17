@@ -89,7 +89,7 @@ def get_accession_info(accession: str) -> Dict[str, str]:
     parameters = {
         "accession": accession,
         "result": "read_run",
-        "fields": "run_accession,instrument_model,instrument_platform,library_strategy,library_layout,library_source",
+        "fields": "run_accession,fastq_ftp,fastq_md5,fastq_bytes,instrument_model,instrument_platform,library_strategy,library_layout,library_source",
         "format": "json"
     }
 
