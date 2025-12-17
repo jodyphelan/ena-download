@@ -103,7 +103,7 @@ def get_accession_info(accession: str) -> Dict[str, str]:
     if len(data) == 0:
         raise ValueError(f"No data found for {accession}")
 
-    return data[0]
+    return data
 
 def extract_data_path(accession: str, platform: str, library_strategy: str) -> Dict[str, str]:
     """
