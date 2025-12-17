@@ -63,6 +63,48 @@ def is_valid_accession(accession: str) -> bool:
         raise ValueError(f"Invalid accession number: {accession}")
     return True
 
+def get_accession_info(accession: str) -> Dict[str, str]:
+    """
+    Get information about the accession number.
+
+    Parameters
+    ----------
+    accession : str
+        The accession number of the data to download.
+
+    Returns
+    -------
+    dict
+        A dictionary containing information about the accession number.
+
+    Examples
+    --------
+    >>> get_accession_info("ERR11466368")
+    {'run_accession': 'ERR11466368', 'instrument_model': 'Illumina NovaSeq 6000', 'instrument_platform': 'ILLUMINA', 'library_strategy': 'WGS', 'library_layout': 'PAIRED', 'library_source': 'GENOMIC'}
+    """
+    time.sleep(1)
+    logging.debug(f"Getting accession info for {accession}")
+    url = "https://www.ebi.ac.uk/ena/portal/api/filereport"
+    parameters = {
+        "accession": accession,
+        "result": "read_run",
+        "fields": "run_accession,instrument_model,instrument_platform,library_strategy,library_layout,library_source",
+        "format": "json"
+    }
+
+    response = requests.get(url, params=parameters)
+    if response.status_code != 200:
+        raise ValueError(f"Invalid URL: {url}")
+    
+    logging.debug(f"Response: {response.text}")
+    data = json.loads(response.text)
+    logging.debug(f"Data found for {accession}: {data}")
+
+    if len(data) == 0:
+        raise ValueError(f"No data found for {accession}")
+
+    return data[0]
+
 def extract_data_path(accession: str, platform: str, library_strategy: str) -> Dict[str, str]:
     """
     Get the URL of the data to download.
@@ -82,27 +124,7 @@ def extract_data_path(accession: str, platform: str, library_strategy: str) -> D
     >>> extract_data_path("ERR11466368")
     ['ftp.sra.ebi.ac.uk/vol1/fastq/ERR114/068/ERR11466368/ERR11466368_1.fastq.gz', 'ftp.sra.ebi.ac.uk/vol1/fastq/ERR114/068/ERR11466368/ERR11466368_2.fastq.gz']
     """
-    time.sleep(1)
-    logging.debug(f"Extracting data path for {accession}")
-    url = "https://www.ebi.ac.uk/ena/portal/api/filereport"
-    parameters = {
-        "accession": accession,
-        "result": "read_run",
-        "fields": "run_accession,fastq_ftp,fastq_md5,fastq_bytes,instrument_model,instrument_platform,library_strategy,library_layout,library_source",
-        "format": "json"
-    }
-
-    response = requests.get(url, params=parameters)
-    if response.status_code != 200:
-        raise ValueError(f"Invalid URL: {url}")
-    
-    logging.debug(f"Response: {response.text}")
-    data = json.loads(response.text)
-    logging.debug(f"Data found for {accession}: {data}")
-
-    if len(data[0]['fastq_ftp']) == 0:
-        raise ValueError(f"No data found for {accession}")
-
+    data = get_accession_info(accession)
     files = {}
     for d in data:
         if d['instrument_platform'] == platform and d['library_strategy'] == library_strategy:
